@@ -39,8 +39,8 @@
       {
         "label": "toolbar",
         "title": "Scoop Actions",
-        "width": 560,
-        "height": 220,
+        "width": 640,
+        "height": 420,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
@@ -53,7 +53,12 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$CACHE/scoop/**", "$HOME/.cache/scoop/**"]
+        "scope": [
+          "$CACHE/scoop/**",
+          "$HOME/.cache/scoop/**",
+          "$DATA/scoop/**",
+          "$HOME/.local/share/scoop/**"
+        ]
       }
     }
   },

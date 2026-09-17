@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { api, SelectionSession } from "../api";
 import "./toolbar.css";
 
@@ -7,54 +8,143 @@ const LABELS: Record<string, string> = {
   calculate: "Calculate",
   ask_ai: "Ask AI",
   search: "Search",
-  save_library: "Library",
+  save_library: "Save image",
   save_note: "Note",
   copy: "Copy",
 };
 
+function parseTags(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(/[,#]+/)) {
+    const t = part.trim().toLowerCase();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 export default function Toolbar() {
   const [session, setSession] = useState<SelectionSession | null>(null);
   const [ocr, setOcr] = useState("");
+  const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string>("");
   const [askOpen, setAskOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [saveTitle, setSaveTitle] = useState("");
+  const [saveTags, setSaveTags] = useState("");
   const [question, setQuestion] = useState("Explain this.");
   const [error, setError] = useState("");
 
-  const refresh = async () => {
-    const s = await api.getSession();
+  const applySession = (s: SelectionSession) => {
     setSession(s);
     setOcr(s.ocrText ?? "");
+    if (s.previewDataUrl) {
+      setPreview(s.previewDataUrl);
+    } else if (s.capturePath) {
+      api
+        .readCaptureDataUrl(s.capturePath)
+        .then(setPreview)
+        .catch((e) => {
+          console.error(e);
+          setPreview(null);
+        });
+    } else {
+      setPreview(null);
+    }
+  };
+
+  const refresh = async () => {
+    applySession(await api.getSession());
   };
 
   useEffect(() => {
     refresh().catch(console.error);
     const unsubs = [
-      listen("session-updated", () => refresh()),
+      listen<SelectionSession>("session-updated", (ev) => {
+        applySession(ev.payload);
+        setAskOpen(false);
+      }),
       listen("selection-started", () => {
         setResult("");
         setError("");
         setAskOpen(false);
+        setSaveOpen(false);
+        setSaveTitle("");
+        setSaveTags("");
+        setPreview(null);
       }),
     ];
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") api.dismissToolbar().catch(console.error);
     };
     window.addEventListener("keydown", onKey);
+    getCurrentWindow()
+      .setSize(new LogicalSize(640, 420))
+      .catch(console.error);
     return () => {
       window.removeEventListener("keydown", onKey);
       unsubs.forEach((p) => p.then((u) => u()));
     };
   }, []);
 
+  useEffect(() => {
+    const tall = saveOpen || askOpen;
+    getCurrentWindow()
+      .setSize(new LogicalSize(640, tall ? 520 : 420))
+      .catch(console.error);
+  }, [saveOpen, askOpen]);
+
   const actions = useMemo(() => session?.actions ?? [], [session]);
+  const hasImage = Boolean(preview || session?.capturePath);
 
   const onOcrBlur = async () => {
     try {
-      const s = await api.updateOcrText(ocr);
-      setSession(s);
+      applySession(await api.updateOcrText(ocr));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const openSave = () => {
+    setAskOpen(false);
+    setSaveOpen(true);
+    setError("");
+    setResult("");
+    if (!saveTitle.trim()) {
+      const first = ocr.split("\n").find((l) => l.trim())?.trim() ?? "";
+      setSaveTitle(first.slice(0, 60));
+    }
+  };
+
+  const confirmSave = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!session?.capturePath && !preview) {
+        throw new Error("No screenshot in this selection. Select again.");
+      }
+      const tags = parseTags(saveTags);
+      const item = await api.actionSaveLibrary({
+        title: saveTitle.trim() || undefined,
+        clipText: ocr,
+        tags,
+        capturePath: session?.capturePath ?? undefined,
+        includeScreenshot: true,
+      });
+      if (!item.screenshotPath) {
+        throw new Error("Saved, but screenshot was not stored. Try selecting again.");
+      }
+      const tagNote = tags.length ? ` · tags: ${tags.join(", ")}` : "";
+      setResult(`Saved image to Library: ${item.title}${tagNote}`);
+      setSaveOpen(false);
+      setSaveTags("");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -77,17 +167,16 @@ export default function Toolbar() {
           setResult(`Searched: ${q}`);
           break;
         }
-        case "save_library": {
-          const item = await api.actionSaveLibrary({ clipText: ocr });
-          setResult(`Saved to Library: ${item.title}`);
+        case "save_library":
+          openSave();
           break;
-        }
         case "save_note": {
           const note = await api.actionSaveNote({ content: ocr }, false);
           setResult(`Saved note: ${note.title}`);
           break;
         }
         case "ask_ai":
+          setSaveOpen(false);
           setAskOpen(true);
           break;
         default:
@@ -121,19 +210,31 @@ export default function Toolbar() {
           Close
         </button>
       </div>
+
       {session?.ocrError && <div className="err">{session.ocrError}</div>}
-      <textarea
-        className="ocr-box"
-        value={ocr}
-        onChange={(e) => setOcr(e.target.value)}
-        onBlur={onOcrBlur}
-        placeholder={
-          session?.ocrError
-            ? "Type or paste text manually, then use actions below"
-            : "OCR text (editable)"
-        }
-        rows={3}
-      />
+
+      <div className="content-row">
+        <div className="preview-pane">
+          {preview ? (
+            <img className="preview-img" src={preview} alt="Selection screenshot" />
+          ) : (
+            <div className="preview-empty">No screenshot</div>
+          )}
+        </div>
+        <textarea
+          className="ocr-box"
+          value={ocr}
+          onChange={(e) => setOcr(e.target.value)}
+          onBlur={onOcrBlur}
+          placeholder={
+            session?.ocrError
+              ? "Type or paste text manually, then use actions below"
+              : "OCR text (editable)"
+          }
+          rows={6}
+        />
+      </div>
+
       <div className="action-row">
         {actions.map((a) => (
           <button key={a} disabled={busy} onClick={() => run(a)}>
@@ -141,6 +242,60 @@ export default function Toolbar() {
           </button>
         ))}
       </div>
+
+      {saveOpen && (
+        <div className="save-panel">
+          <div className="save-title">Save screenshot to Library</div>
+          <div className="save-layout">
+            <div className="save-preview">
+              {preview ? (
+                <img src={preview} alt="" />
+              ) : (
+                <div className="preview-empty">Image missing</div>
+              )}
+            </div>
+            <div className="save-fields">
+              <label className="save-field">
+                <span>Title</span>
+                <input
+                  value={saveTitle}
+                  onChange={(e) => setSaveTitle(e.target.value)}
+                  placeholder="Optional title"
+                />
+              </label>
+              <label className="save-field">
+                <span>Tags</span>
+                <input
+                  autoFocus
+                  value={saveTags}
+                  onChange={(e) => setSaveTags(e.target.value)}
+                  placeholder="work, bug, postgres"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      confirmSave().catch(console.error);
+                    }
+                  }}
+                />
+              </label>
+              <div className="save-hint">
+                {hasImage
+                  ? "Screenshot + text will be saved together."
+                  : "Screenshot missing — select the region again."}
+              </div>
+            </div>
+          </div>
+          <div className="save-actions">
+            <button className="ghost" disabled={busy} onClick={() => setSaveOpen(false)}>
+              Cancel
+            </button>
+            <button disabled={busy || !hasImage} onClick={() => confirmSave()}>
+              {busy ? "Saving…" : "Save image"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {askOpen && (
         <div className="ask-row">
           <input

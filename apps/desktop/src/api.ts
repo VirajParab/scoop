@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type SelectionSession = {
   capturePath?: string | null;
+  previewDataUrl?: string | null;
   ocrText: string;
   ocrError?: string | null;
   contentType: string;

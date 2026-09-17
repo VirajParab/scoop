@@ -293,3 +293,33 @@ pub fn capture_region(region: &Region) -> ScoopResult<PathBuf> {
 pub fn cleanup_capture(path: &str) {
     let _ = std::fs::remove_file(path);
 }
+
+/// Keep the session crop at a stable path so later Save-to-Library always finds it.
+pub fn hold_session_capture(src: &PathBuf) -> ScoopResult<PathBuf> {
+    let dest = captures_dir()?.join("session-selection.png");
+    if src != &dest {
+        std::fs::copy(src, &dest)
+            .map_err(|e| ScoopError::msg(format!("Failed to keep selection image: {e}")))?;
+        // Remove the ephemeral UUID crop; session now owns session-selection.png
+        if src.file_name().and_then(|n| n.to_str()) != Some("session-selection.png") {
+            let _ = std::fs::remove_file(src);
+        }
+    }
+    if !dest.exists() {
+        return Err(ScoopError::msg("Selection image missing after hold"));
+    }
+    Ok(dest)
+}
+
+pub fn read_data_url(path: &std::path::Path) -> ScoopResult<String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let bytes = std::fs::read(path)
+        .map_err(|e| ScoopError::msg(format!("Read capture failed: {e}")))?;
+    if bytes.is_empty() {
+        return Err(ScoopError::msg("Capture file is empty"));
+    }
+    Ok(format!(
+        "data:image/png;base64,{}",
+        STANDARD.encode(bytes)
+    ))
+}

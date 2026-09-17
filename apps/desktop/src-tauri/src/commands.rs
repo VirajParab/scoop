@@ -180,8 +180,19 @@ pub fn confirm_selection(
     let content = classify::classify_text(&ocr_text);
     let actions = intent::rank_actions(content);
 
+    // Pin crop to a stable session path so Save always finds the image.
+    let held = capture::hold_session_capture(&path)?;
+    let preview_data_url = match capture::read_data_url(&held) {
+        Ok(url) => Some(url),
+        Err(e) => {
+            eprintln!("Scoop preview encode failed: {e}");
+            None
+        }
+    };
+
     let session = SelectionSession {
-        capture_path: Some(path.to_string_lossy().to_string()),
+        capture_path: Some(held.to_string_lossy().to_string()),
+        preview_data_url,
         ocr_text,
         ocr_error,
         content_type: content.as_str().to_string(),
@@ -228,8 +239,8 @@ fn position_toolbar(app: &AppHandle, region: &Region) -> ScoopResult<()> {
         .get_webview_window("toolbar")
         .ok_or_else(|| ScoopError::msg("Toolbar window missing"))?;
 
-    let tw = 560i32;
-    let th = 220i32;
+    let tw = 640i32;
+    let th = 420i32;
     let mut x = region.x;
     let mut y = region.y + region.height as i32 + 12;
 
@@ -323,6 +334,7 @@ pub fn action_copy(
             ocr_text: Some(session.ocr_text),
             capture_path: None,
             content_type: Some(session.content_type),
+            include_screenshot: Some(false),
         });
     }
     Ok(())
@@ -387,15 +399,36 @@ pub fn action_save_library(
     shared: State<SharedDb>,
 ) -> ScoopResult<crate::db::library::LibraryItem> {
     let session = state.session.lock().expect("session").clone();
+    let include_shot = input.include_screenshot.unwrap_or(true);
+    let capture_path = if include_shot {
+        input
+            .capture_path
+            .or(session.capture_path.clone())
+            .filter(|p| !p.is_empty() && std::path::Path::new(p).exists())
+    } else {
+        None
+    };
+
+    if include_shot && capture_path.is_none() {
+        return Err(ScoopError::msg(
+            "Screenshot file is missing. Select the region again, then Save.",
+        ));
+    }
+
     let merged = SaveLibraryInput {
         title: input.title,
         collection_name: input.collection_name.or(Some("Inbox".into())),
         tags: input.tags,
         clip_text: input.clip_text.or(Some(session.ocr_text.clone())),
         ocr_text: input.ocr_text.or(Some(session.ocr_text.clone())),
-        capture_path: input.capture_path.or(session.capture_path.clone()),
+        capture_path,
         content_type: input.content_type.or(Some(session.content_type.clone())),
+        include_screenshot: Some(include_shot),
     };
+    eprintln!(
+        "Scoop save_library: include_shot={include_shot} path={:?} tags={:?}",
+        merged.capture_path, merged.tags
+    );
     let item = shared.0.save_library_item(merged)?;
     let _ = shared.0.add_history(
         "save_library",
@@ -579,12 +612,7 @@ pub fn clear_history(shared: State<SharedDb>) -> ScoopResult<()> {
 
 #[tauri::command]
 pub fn read_capture_data_url(path: String) -> ScoopResult<String> {
-    use base64::{engine::general_purpose::STANDARD, Engine};
-    let bytes = std::fs::read(&path)?;
-    Ok(format!(
-        "data:image/png;base64,{}",
-        STANDARD.encode(bytes)
-    ))
+    capture::read_data_url(std::path::Path::new(&path))
 }
 
 #[tauri::command]

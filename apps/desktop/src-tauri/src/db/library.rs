@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::Db;
-use crate::error::ScoopResult;
+use crate::error::{ScoopError, ScoopResult};
 use crate::paths::media_dir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -41,6 +41,8 @@ pub struct SaveLibraryInput {
     pub ocr_text: Option<String>,
     pub capture_path: Option<String>,
     pub content_type: Option<String>,
+    /// When false, skip persisting the screenshot (text-only save). Default true.
+    pub include_screenshot: Option<bool>,
 }
 
 impl Db {
@@ -114,16 +116,25 @@ impl Db {
         let mut screenshot_path = None;
         let mut item_type = "text".to_string();
         if let Some(src) = input.capture_path.as_ref() {
-            if std::path::Path::new(src).exists() {
-                let dest = media_dir()?.join(format!("{id}.png"));
-                std::fs::copy(src, &dest)?;
-                screenshot_path = Some(dest.to_string_lossy().to_string());
-                item_type = if clip.as_ref().map(|c| !c.is_empty()).unwrap_or(false) {
-                    "mixed".into()
-                } else {
-                    "screenshot".into()
-                };
+            let src_path = std::path::Path::new(src);
+            if !src_path.exists() {
+                return Err(ScoopError::msg(format!(
+                    "Screenshot not found at {src}"
+                )));
             }
+            let dest = media_dir()?.join(format!("{id}.png"));
+            std::fs::copy(src_path, &dest).map_err(|e| {
+                ScoopError::msg(format!("Failed to save screenshot: {e}"))
+            })?;
+            if !dest.exists() || dest.metadata().map(|m| m.len()).unwrap_or(0) == 0 {
+                return Err(ScoopError::msg("Screenshot copy produced an empty file"));
+            }
+            screenshot_path = Some(dest.to_string_lossy().to_string());
+            item_type = if clip.as_ref().map(|c| !c.is_empty()).unwrap_or(false) {
+                "mixed".into()
+            } else {
+                "screenshot".into()
+            };
         }
 
         let tags = input.tags.unwrap_or_default();

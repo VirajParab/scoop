@@ -8,6 +8,8 @@ use crate::capture::DesktopCapture;
 #[serde(rename_all = "camelCase")]
 pub struct SelectionSession {
     pub capture_path: Option<String>,
+    /// Small PNG preview as a data URL for the toolbar (set on confirm).
+    pub preview_data_url: Option<String>,
     pub ocr_text: String,
     /// Empty when OCR succeeded; otherwise a user-facing reason.
     pub ocr_error: Option<String>,

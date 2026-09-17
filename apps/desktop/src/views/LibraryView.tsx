@@ -1,5 +1,23 @@
 import { useEffect, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { api, Collection, LibraryItem } from "../api";
+
+function LibraryThumb({ path }: { path: string }) {
+  const [src, setSrc] = useState<string>(() => convertFileSrc(path));
+  useEffect(() => {
+    setSrc(convertFileSrc(path));
+    // Fallback if asset protocol fails for this path.
+    const img = new Image();
+    img.onerror = () => {
+      api
+        .readCaptureDataUrl(path)
+        .then(setSrc)
+        .catch(console.error);
+    };
+    img.src = convertFileSrc(path);
+  }, [path]);
+  return <img className="lib-thumb" src={src} alt="" />;
+}
 
 export default function LibraryView() {
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -35,7 +53,7 @@ export default function LibraryView() {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search library…"
+          placeholder="Search library (text & tags)…"
           onKeyDown={(e) => e.key === "Enter" && load()}
         />
         <button onClick={load}>Search</button>
@@ -77,8 +95,20 @@ export default function LibraryView() {
       <div className="list">
         {items.map((item) => (
           <div className="card" key={item.id}>
+            {item.screenshotPath && (
+              <LibraryThumb path={item.screenshotPath} />
+            )}
             <h3>{item.title}</h3>
             <p>{item.clipText || item.ocrText || "(no text)"}</p>
+            {item.tags?.length > 0 && (
+              <div className="tag-row">
+                {item.tags.map((t) => (
+                  <span className="tag" key={t}>
+                    {t}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="meta">
               <span>{item.collectionName}</span>
               <span>{item.itemType}</span>
