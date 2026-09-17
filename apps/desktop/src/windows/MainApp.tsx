@@ -184,7 +184,8 @@ export default function MainApp() {
 
             {!hits.length && ocrOk === false && (
               <p className="warn-box">
-                Install Tesseract for OCR, then restart Scoop.
+                OCR is not ready. Open <strong>Settings → OCR</strong> to
+                download language packs, or install Tesseract:
                 <br />
                 <code>make install-ocr</code>
               </p>

@@ -24,6 +24,17 @@ export type AppSettings = {
   hasApiKey: boolean;
 };
 
+export type OcrStatus = {
+  engineInstalled: boolean;
+  engineVersion?: string | null;
+  languageReady: boolean;
+  installedLanguages: string[];
+  missingLanguages: string[];
+  tessdataDir: string;
+  ready: boolean;
+  hint: string;
+};
+
 export type LibraryItem = {
   id: string;
   collectionId: string;
@@ -118,6 +129,9 @@ export const api = {
   rebindHotkey: (shortcut: string) =>
     invoke("rebind_hotkey", { shortcut }),
   ocrAvailable: () => invoke<boolean>("ocr_available"),
+  ocrStatus: () => invoke<OcrStatus>("ocr_status"),
+  downloadOcrLanguage: (lang = "eng") =>
+    invoke<OcrStatus>("download_ocr_language", { lang }),
   getOverlayBackdrop: () => invoke<string | null>("get_overlay_backdrop"),
   listCollections: () => invoke<Collection[]>("list_collections"),
   createCollection: (name: string) =>

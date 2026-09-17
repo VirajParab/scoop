@@ -68,6 +68,8 @@ pub fn run() {
             commands::open_main_window,
             commands::rebind_hotkey,
             commands::ocr_available,
+            commands::ocr_status,
+            commands::download_ocr_language,
             commands::get_overlay_backdrop,
         ])
         .setup(|app| {

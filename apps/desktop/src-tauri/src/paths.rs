@@ -39,3 +39,10 @@ pub fn screenshots_dir() -> ScoopResult<PathBuf> {
 pub fn db_path() -> ScoopResult<PathBuf> {
     Ok(data_dir()?.join("scoop.db"))
 }
+
+/// App-managed Tesseract language data (`*.traineddata`).
+pub fn tessdata_dir() -> ScoopResult<PathBuf> {
+    let dir = data_dir()?.join("tessdata");
+    std::fs::create_dir_all(&dir)?;
+    Ok(dir)
+}

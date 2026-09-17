@@ -790,3 +790,13 @@ pub fn rebind_hotkey(
 pub fn ocr_available() -> bool {
     ocr::is_available()
 }
+
+#[tauri::command]
+pub fn ocr_status() -> ScoopResult<ocr::OcrStatus> {
+    ocr::status()
+}
+
+#[tauri::command]
+pub fn download_ocr_language(lang: String) -> ScoopResult<ocr::OcrStatus> {
+    ocr::download_language(&lang)
+}

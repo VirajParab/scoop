@@ -1,11 +1,19 @@
 # Scoop — common development targets
 # Usage: make [target]
 
-.PHONY: help install install-desktop install-ocr dev build frontend test test-math check typecheck clean clean-data reset-data
+.PHONY: help install install-desktop install-ocr dev build build-deb build-appimage frontend test test-math check typecheck clean clean-data reset-data
 
 DESKTOP := apps/desktop
 TAURI   := $(DESKTOP)/src-tauri
 NPM     := npm --prefix $(DESKTOP)
+BUNDLE  := $(TAURI)/target/release/bundle
+
+# linuxdeploy walks PATH and crashes on broken symlink loops
+# (seen with /usr/local/bin/kubectx → kubectx/kubectx).
+# Prefer newest nvm/fnm Node when present; never put /usr/local/bin on the bundler PATH.
+NVM_NODE := $(shell ls -1d $(HOME)/.nvm/versions/node/*/bin 2>/dev/null | sort -V | tail -1)
+FNM_NODE := $(shell ls -1d $(HOME)/.local/share/fnm/node-versions/*/installation/bin 2>/dev/null | sort -V | tail -1)
+SAFE_PATH := $(shell printf '%s\n' $(NVM_NODE) $(FNM_NODE) $(HOME)/.cargo/bin $(HOME)/.local/bin /usr/bin /bin /usr/sbin /sbin | awk 'NF' | paste -sd:)
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Scoop make targets\n\n"} \
@@ -25,8 +33,23 @@ install-ocr: ## Install Tesseract OCR (Ubuntu/Debian; needs sudo)
 dev: ## Run Scoop in development (Tauri + Vite)
 	$(NPM) run tauri -- dev
 
-build: ## Production Tauri build (deb / AppImage when configured)
-	$(NPM) run tauri -- build
+build: ## Production build (deb + AppImage) with linuxdeploy-safe PATH
+	@echo "Building Scoop (PATH sanitized for linuxdeploy)…"
+	PATH="$(SAFE_PATH)" APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=true \
+		$(NPM) run tauri -- build
+	@echo ""
+	@echo "Artifacts:"
+	@ls -lah $(BUNDLE)/deb/*.deb 2>/dev/null || true
+	@ls -lah $(BUNDLE)/appimage/*.AppImage 2>/dev/null || true
+
+build-deb: ## Production .deb only (skips AppImage)
+	PATH="$(SAFE_PATH)" $(NPM) run tauri -- build --bundles deb
+	@ls -lah $(BUNDLE)/deb/*.deb
+
+build-appimage: ## Production AppImage only
+	PATH="$(SAFE_PATH)" APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=true \
+		$(NPM) run tauri -- build --bundles appimage
+	@ls -lah $(BUNDLE)/appimage/*.AppImage
 
 frontend: ## Build frontend only (tsc + vite)
 	$(NPM) run build
