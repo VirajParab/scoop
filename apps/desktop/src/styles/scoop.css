@@ -1,0 +1,198 @@
+/* Scoop shared design tokens — used by main, toolbar, overlay, editor */
+:root {
+  color-scheme: dark;
+
+  --scoop-ink: #0c0f0d;
+  --scoop-bg: #121612;
+  --scoop-surface: #1a1f1a;
+  --scoop-surface-2: #222822;
+  --scoop-elevated: #262c26;
+  --scoop-line: rgba(232, 240, 220, 0.1);
+  --scoop-line-strong: rgba(232, 240, 220, 0.18);
+
+  --scoop-text: #f3f6ef;
+  --scoop-muted: #9aa392;
+  --scoop-faint: #6e7668;
+
+  --scoop-signal: #c8f542;
+  --scoop-signal-ink: #14200a;
+  --scoop-mint: #7dffa3;
+  --scoop-danger: #ff6b6b;
+  --scoop-danger-bg: rgba(255, 80, 80, 0.12);
+
+  --scoop-radius: 14px;
+  --scoop-radius-sm: 10px;
+  --scoop-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+
+  --scoop-font-display: "Syne", "Avenir Next", "Segoe UI", sans-serif;
+  --scoop-font-body: "Figtree", "Avenir Next", "Segoe UI", sans-serif;
+  --scoop-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --scoop-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes scoop-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scoop-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scoop-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(200, 245, 66, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(200, 245, 66, 0);
+  }
+}
+
+.scoop-btn {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--scoop-font-body);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 9px 16px;
+  transition: transform 160ms var(--scoop-ease), background 160ms ease,
+    opacity 160ms ease;
+}
+
+.scoop-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.scoop-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+
+.scoop-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+.scoop-btn-primary {
+  background: var(--scoop-signal);
+  color: var(--scoop-signal-ink);
+}
+
+.scoop-btn-secondary {
+  background: var(--scoop-elevated);
+  color: var(--scoop-text);
+  border: 1px solid var(--scoop-line-strong);
+}
+
+.scoop-btn-ghost {
+  background: transparent;
+  color: var(--scoop-muted);
+  padding: 6px 10px;
+}
+
+.scoop-btn-ghost:hover {
+  color: var(--scoop-text);
+}
+
+.scoop-input,
+.scoop-textarea,
+.scoop-select {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--scoop-surface);
+  border: 1px solid var(--scoop-line-strong);
+  color: var(--scoop-text);
+  border-radius: var(--scoop-radius-sm);
+  padding: 10px 12px;
+  font-family: var(--scoop-font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.scoop-input:focus,
+.scoop-textarea:focus,
+.scoop-select:focus {
+  border-color: rgba(200, 245, 66, 0.55);
+  box-shadow: 0 0 0 3px rgba(200, 245, 66, 0.12);
+}
+
+.scoop-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(200, 245, 66, 0.1);
+  color: var(--scoop-signal);
+  border: 1px solid rgba(200, 245, 66, 0.22);
+}
+
+.scoop-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--scoop-elevated);
+  color: var(--scoop-mint);
+  border: 1px solid var(--scoop-line-strong);
+}
+
+.scoop-panel {
+  background: linear-gradient(
+    165deg,
+    rgba(34, 40, 34, 0.95),
+    rgba(18, 22, 18, 0.98)
+  );
+  border: 1px solid var(--scoop-line-strong);
+  border-radius: var(--scoop-radius);
+  box-shadow: var(--scoop-shadow);
+}
+
+.scoop-hint {
+  font-size: 12px;
+  color: var(--scoop-muted);
+  line-height: 1.45;
+}
+
+.scoop-status-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--scoop-mint);
+}
+
+.scoop-status-ok::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--scoop-mint);
+  box-shadow: 0 0 0 3px rgba(125, 255, 163, 0.15);
+}
+
+.scoop-status-bad {
+  color: var(--scoop-danger);
+  font-size: 12px;
+}

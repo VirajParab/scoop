@@ -1,14 +1,17 @@
+@import "../styles/scoop.css";
+
 .img-editor {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
+  animation: scoop-rise 280ms var(--scoop-ease);
 }
 
 .img-editor-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
@@ -16,29 +19,32 @@
 .img-editor-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .img-editor-tools button,
 .img-editor-actions button {
-  background: #1a2433;
-  color: #e8eef7;
-  border: 1px solid #2a3545;
-  border-radius: 8px;
-  padding: 6px 10px;
+  background: var(--scoop-elevated);
+  color: var(--scoop-text);
+  border: 1px solid var(--scoop-line-strong);
+  border-radius: 999px;
+  padding: 7px 12px;
   cursor: pointer;
+  font-family: var(--scoop-font-body);
   font-size: 12px;
+  font-weight: 600;
 }
 
 .img-editor-tools button.active,
 .img-editor-actions button.primary {
-  background: #1e6fff;
-  border-color: #1e6fff;
-  color: #fff;
+  background: var(--scoop-signal);
+  border-color: transparent;
+  color: var(--scoop-signal-ink);
 }
 
 .img-editor-actions button.ghost {
   background: transparent;
+  color: var(--scoop-muted);
 }
 
 .img-editor-tools button:disabled,
@@ -49,7 +55,7 @@
 
 .img-editor-colors {
   display: flex;
-  gap: 4px;
+  gap: 5px;
   align-items: center;
 }
 
@@ -63,8 +69,8 @@
 }
 
 .img-editor-colors .swatch.active {
-  border-color: #8fd0ff;
-  box-shadow: 0 0 0 1px #121820;
+  border-color: var(--scoop-signal);
+  box-shadow: 0 0 0 1px var(--scoop-ink);
 }
 
 .img-editor-size {
@@ -72,7 +78,8 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #9aabb8;
+  color: var(--scoop-muted);
+  font-weight: 600;
 }
 
 .img-editor-size input {
@@ -80,10 +87,10 @@
 }
 
 .img-editor-stage {
-  background: #0c1118;
-  border: 1px solid #2a3545;
-  border-radius: 10px;
-  padding: 8px;
+  background: var(--scoop-ink);
+  border: 1px solid var(--scoop-line-strong);
+  border-radius: 14px;
+  padding: 10px;
   max-height: min(78vh, 720px);
   overflow: auto;
   display: flex;
@@ -112,6 +119,6 @@
 
 .img-editor-hint {
   margin: 0;
-  font-size: 11px;
-  color: #9aabb8;
+  font-size: 12px;
+  color: var(--scoop-muted);
 }

@@ -23,7 +23,7 @@ export default function HistoryView() {
           Clear history
         </button>
       </div>
-      <p className="msg">
+      <p className="panel-lead">
         Recent actions only. Clearing history does not delete Library or Notes.
       </p>
       <div className="list">

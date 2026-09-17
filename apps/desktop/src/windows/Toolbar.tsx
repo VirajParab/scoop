@@ -169,6 +169,7 @@ export default function Toolbar() {
       );
       setSaveOpen(false);
       setSaveTags("");
+      await api.openMainWindow();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -249,7 +250,10 @@ export default function Toolbar() {
     return (
       <div className="toolbar-root editor-mode">
         <div className="toolbar-meta">
-          <span className="pill">EDIT IMAGE</span>
+          <div className="toolbar-brand">
+            <span className="toolbar-brand-mark">Scoop</span>
+            <span className="pill">EDIT IMAGE</span>
+          </div>
           <button className="ghost" onClick={() => setEditing(false)}>
             Back
           </button>
@@ -276,7 +280,10 @@ export default function Toolbar() {
   return (
     <div className="toolbar-root">
       <div className="toolbar-meta">
-        <span className="pill">{session?.contentType || "UNKNOWN"}</span>
+        <div className="toolbar-brand">
+          <span className="toolbar-brand-mark">Scoop</span>
+          <span className="pill">{session?.contentType || "SELECTION"}</span>
+        </div>
         <button className="ghost" onClick={() => api.dismissToolbar()}>
           Close
         </button>

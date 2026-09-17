@@ -454,6 +454,7 @@ pub fn action_save_library(
     input: SaveLibraryInput,
     state: State<AppState>,
     shared: State<SharedDb>,
+    app: AppHandle,
 ) -> ScoopResult<crate::db::library::LibraryItem> {
     let session = state.session.lock().expect("session").clone();
     let include_shot = input.include_screenshot.unwrap_or(true);
@@ -508,6 +509,7 @@ pub fn action_save_library(
         link_note.as_deref(),
         item.content_type.as_deref(),
     );
+    let _ = app.emit("library-saved", &item);
     Ok(item)
 }
 
@@ -517,6 +519,7 @@ pub fn action_save_note(
     smart: bool,
     state: State<AppState>,
     shared: State<SharedDb>,
+    app: AppHandle,
 ) -> ScoopResult<crate::db::notes::Note> {
     let session = state.session.lock().expect("session").clone();
 
@@ -608,6 +611,7 @@ pub fn action_save_note(
         link_lib.as_deref(),
         note.content_type.as_deref(),
     );
+    let _ = app.emit("note-saved", &note);
     Ok(note)
 }
 

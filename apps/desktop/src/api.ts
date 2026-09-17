@@ -138,4 +138,5 @@ export const api = {
   clearHistory: () => invoke("clear_history"),
   readCaptureDataUrl: (path: string) =>
     invoke<string>("read_capture_data_url", { path }),
+  openMainWindow: () => invoke("open_main_window"),
 };

@@ -17,6 +17,9 @@ export default function SettingsView() {
       <div className="panel-title">
         <h2>Settings</h2>
       </div>
+      <p className="panel-lead">
+        Hotkey, search, and AI settings for your Scoop workspace.
+      </p>
       <div className="form-grid">
         <label>
           Global hotkey

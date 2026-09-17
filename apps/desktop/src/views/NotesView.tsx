@@ -33,7 +33,7 @@ export default function NotesView() {
       <div className="panel-title">
         <h2>Notes</h2>
       </div>
-      <p className="msg">
+      <p className="panel-lead">
         Notes stay linked to their screenshots — search finds either side.
       </p>
       <div className="search-row">

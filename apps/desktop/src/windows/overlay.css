@@ -1,3 +1,5 @@
+@import "../styles/scoop.css";
+
 html,
 body,
 #root {
@@ -12,7 +14,7 @@ body,
   inset: 0;
   cursor: crosshair;
   user-select: none;
-  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  font-family: var(--scoop-font-body);
   background: transparent;
 }
 
@@ -29,50 +31,51 @@ body,
 .overlay-fallback {
   position: absolute;
   inset: 0;
-  background: rgba(12, 18, 28, 0.15);
+  background: rgba(12, 15, 13, 0.18);
   pointer-events: none;
   z-index: 0;
 }
 
-/* Light dim so the frozen desktop stays readable */
 .overlay-dim {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.22);
+  background: rgba(0, 0, 0, 0.28);
   pointer-events: none;
   z-index: 1;
 }
 
-/* While dragging, dim is handled by selection box-shadow (clearer “hole”) */
 .overlay-dim.selecting {
   background: transparent;
 }
 
 .overlay-hint {
   position: absolute;
-  top: 24px;
+  top: 28px;
   left: 50%;
   transform: translateX(-50%);
-  color: #e8eef7;
-  background: rgba(12, 18, 28, 0.72);
-  padding: 8px 14px;
-  border-radius: 8px;
+  color: var(--scoop-signal-ink);
+  background: var(--scoop-signal);
+  padding: 10px 16px;
+  border-radius: 999px;
   font-size: 13px;
-  letter-spacing: 0.02em;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   pointer-events: none;
   z-index: 3;
+  box-shadow: var(--scoop-shadow);
+  animation: scoop-rise 280ms var(--scoop-ease);
 }
 
 .overlay-error {
   position: absolute;
-  top: 64px;
+  top: 72px;
   left: 50%;
   transform: translateX(-50%);
   max-width: min(560px, 90vw);
   color: #ffe8e8;
-  background: rgba(90, 24, 24, 0.88);
+  background: rgba(90, 24, 24, 0.92);
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 12px;
   line-height: 1.4;
   pointer-events: none;
@@ -83,20 +86,20 @@ body,
 
 .selection-rect {
   position: absolute;
-  border: 2px solid #5ec8ff;
+  border: 2px solid var(--scoop-signal);
   background: transparent;
-  /* Outside the selection stays lightly dimmed; inside stays fully visible */
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.36);
   z-index: 2;
 }
 
 .selection-size {
   position: absolute;
-  bottom: -22px;
+  bottom: -26px;
   right: 0;
   font-size: 11px;
-  color: #d7e6f5;
-  background: rgba(12, 18, 28, 0.8);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-weight: 700;
+  color: var(--scoop-signal-ink);
+  background: var(--scoop-signal);
+  padding: 3px 8px;
+  border-radius: 999px;
 }

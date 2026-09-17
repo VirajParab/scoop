@@ -42,7 +42,7 @@ export default function LibraryView() {
       <div className="panel-title">
         <h2>Library</h2>
       </div>
-      <p className="msg">
+      <p className="panel-lead">
         Screenshots linked to notes — search by text, tags, or filename.
       </p>
       <div className="search-row">
