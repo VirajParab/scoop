@@ -8,6 +8,9 @@ export type SelectionSession = {
   contentType: string;
   actions: string[];
   region?: { x: number; y: number; width: number; height: number } | null;
+  libraryItemId?: string | null;
+  noteId?: string | null;
+  clipboardImageCopied?: boolean;
 };
 
 export type AppSettings = {
@@ -32,6 +35,8 @@ export type LibraryItem = {
   tags: string[];
   screenshotPath?: string;
   contentType?: string;
+  noteId?: string | null;
+  linkedNoteTitle?: string | null;
   createdAt: string;
 };
 
@@ -45,6 +50,21 @@ export type Note = {
   screenshotPath?: string;
   contentType?: string;
   isSmart: boolean;
+  libraryItemId?: string | null;
+  linkedLibraryTitle?: string | null;
+  createdAt: string;
+};
+
+export type SearchHit = {
+  kind: "library" | "note" | string;
+  id: string;
+  title: string;
+  snippet: string;
+  tags: string[];
+  screenshotPath?: string | null;
+  linkedKind?: string | null;
+  linkedId?: string | null;
+  linkedTitle?: string | null;
   createdAt: string;
 };
 
@@ -75,6 +95,8 @@ export const api = {
   getSession: () => invoke<SelectionSession>("get_session"),
   updateOcrText: (text: string) =>
     invoke<SelectionSession>("update_ocr_text", { text }),
+  applyEditedCapture: (pngBase64: string) =>
+    invoke<SelectionSession>("apply_edited_capture", { pngBase64 }),
   dismissToolbar: () => invoke("dismiss_toolbar"),
   actionCopy: (text?: string) => invoke("action_copy", { text }),
   actionCalculate: (text?: string) =>
@@ -106,6 +128,7 @@ export const api = {
     }),
   searchLibrary: (query: string) =>
     invoke<LibraryItem[]>("search_library", { query }),
+  searchAll: (query: string) => invoke<SearchHit[]>("search_all", { query }),
   deleteLibraryItem: (id: string) => invoke("delete_library_item", { id }),
   listNotes: () => invoke<Note[]>("list_notes"),
   searchNotes: (query: string) => invoke<Note[]>("search_notes", { query }),

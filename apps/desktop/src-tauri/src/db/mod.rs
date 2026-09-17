@@ -1,6 +1,7 @@
 pub mod history;
 pub mod library;
 pub mod notes;
+pub mod search;
 pub mod settings;
 
 use std::sync::Mutex;
@@ -91,7 +92,9 @@ impl Db {
 
             CREATE INDEX IF NOT EXISTS idx_library_collection ON library_items(collection_id);
             CREATE INDEX IF NOT EXISTS idx_library_created ON library_items(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_library_note ON library_items(note_id);
             CREATE INDEX IF NOT EXISTS idx_notes_created ON notes(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_notes_library ON notes(library_item_id);
             CREATE INDEX IF NOT EXISTS idx_history_created ON history(created_at DESC);
 
             CREATE VIRTUAL TABLE IF NOT EXISTS library_fts USING fts5(

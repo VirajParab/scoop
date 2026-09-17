@@ -22,8 +22,16 @@ pub fn captures_dir() -> ScoopResult<PathBuf> {
     Ok(dir)
 }
 
-pub fn media_dir() -> ScoopResult<PathBuf> {
-    let dir = data_dir()?.join("media");
+/// Persisted selection screenshots (Library / Notes).
+/// Stored in the user's Pictures/Screenshots folder.
+pub fn screenshots_dir() -> ScoopResult<PathBuf> {
+    let dir = dirs::picture_dir()
+        .unwrap_or_else(|| {
+            dirs::home_dir()
+                .unwrap_or_else(|| PathBuf::from("."))
+                .join("Pictures")
+        })
+        .join("Screenshots");
     std::fs::create_dir_all(&dir)?;
     Ok(dir)
 }

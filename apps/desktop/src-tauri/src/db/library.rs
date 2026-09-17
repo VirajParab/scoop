@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use chrono::Utc;
 use rusqlite::params;
 use serde::{Deserialize, Serialize};
@@ -5,7 +7,7 @@ use uuid::Uuid;
 
 use super::Db;
 use crate::error::{ScoopError, ScoopResult};
-use crate::paths::media_dir;
+use crate::paths::screenshots_dir;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -28,6 +30,8 @@ pub struct LibraryItem {
     pub tags: Vec<String>,
     pub screenshot_path: Option<String>,
     pub content_type: Option<String>,
+    pub note_id: Option<String>,
+    pub linked_note_title: Option<String>,
     pub created_at: String,
 }
 
@@ -43,7 +47,54 @@ pub struct SaveLibraryInput {
     pub content_type: Option<String>,
     /// When false, skip persisting the screenshot (text-only save). Default true.
     pub include_screenshot: Option<bool>,
+    /// Optional existing note to link (lineage).
+    pub note_id: Option<String>,
 }
+
+pub fn path_search_tokens(path: Option<&str>) -> String {
+    let Some(path) = path else {
+        return String::new();
+    };
+    let p = Path::new(path);
+    let mut parts = Vec::new();
+    if let Some(name) = p.file_name().and_then(|n| n.to_str()) {
+        parts.push(name.to_string());
+    }
+    if let Some(stem) = p.file_stem().and_then(|n| n.to_str()) {
+        parts.push(stem.to_string());
+    }
+    parts.push("screenshot".into());
+    parts.push("image".into());
+    parts.join(" ")
+}
+
+fn map_library_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<LibraryItem> {
+    let tags_json: String = r.get(7)?;
+    let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+    Ok(LibraryItem {
+        id: r.get(0)?,
+        collection_id: r.get(1)?,
+        collection_name: r.get(2)?,
+        title: r.get(3)?,
+        item_type: r.get(4)?,
+        clip_text: r.get(5)?,
+        ocr_text: r.get(6)?,
+        tags,
+        screenshot_path: r.get(8)?,
+        content_type: r.get(9)?,
+        note_id: r.get(10)?,
+        linked_note_title: r.get(11)?,
+        created_at: r.get(12)?,
+    })
+}
+
+const LIBRARY_SELECT: &str = "
+    SELECT li.id, li.collection_id, c.name, li.title, li.item_type, li.clip_text, li.ocr_text,
+           li.tags, li.screenshot_path, li.content_type, li.note_id, n.title, li.created_at
+    FROM library_items li
+    JOIN collections c ON c.id = li.collection_id
+    LEFT JOIN notes n ON n.id = li.note_id
+";
 
 impl Db {
     pub fn list_collections(&self) -> ScoopResult<Vec<Collection>> {
@@ -89,6 +140,13 @@ impl Db {
         Ok(id)
     }
 
+    pub fn get_library_item(&self, id: &str) -> ScoopResult<Option<LibraryItem>> {
+        let conn = self.conn.lock().expect("db");
+        let mut stmt = conn.prepare(&format!("{LIBRARY_SELECT} WHERE li.id = ?1"))?;
+        let mut rows = stmt.query_map(params![id], map_library_row)?;
+        Ok(rows.next().transpose()?)
+    }
+
     pub fn save_library_item(&self, input: SaveLibraryInput) -> ScoopResult<LibraryItem> {
         let conn = self.conn.lock().expect("db");
         let id = Uuid::new_v4().to_string();
@@ -116,13 +174,13 @@ impl Db {
         let mut screenshot_path = None;
         let mut item_type = "text".to_string();
         if let Some(src) = input.capture_path.as_ref() {
-            let src_path = std::path::Path::new(src);
+            let src_path = Path::new(src);
             if !src_path.exists() {
                 return Err(ScoopError::msg(format!(
                     "Screenshot not found at {src}"
                 )));
             }
-            let dest = media_dir()?.join(format!("{id}.png"));
+            let dest = screenshots_dir()?.join(format!("{id}.png"));
             std::fs::copy(src_path, &dest).map_err(|e| {
                 ScoopError::msg(format!("Failed to save screenshot: {e}"))
             })?;
@@ -139,11 +197,12 @@ impl Db {
 
         let tags = input.tags.unwrap_or_default();
         let tags_json = serde_json::to_string(&tags)?;
+        let note_id = input.note_id.clone();
 
         conn.execute(
             "INSERT INTO library_items
-             (id, collection_id, title, item_type, clip_text, ocr_text, tags, screenshot_path, content_type, created_at, updated_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?10)",
+             (id, collection_id, title, item_type, clip_text, ocr_text, tags, screenshot_path, content_type, note_id, created_at, updated_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?11)",
             params![
                 id,
                 collection_id,
@@ -154,9 +213,18 @@ impl Db {
                 tags_json,
                 screenshot_path,
                 input.content_type,
+                note_id,
                 now
             ],
         )?;
+
+        let fts_tags = format!(
+            "{} {}",
+            tags.join(" "),
+            path_search_tokens(screenshot_path.as_deref())
+        )
+        .trim()
+        .to_string();
 
         conn.execute(
             "INSERT INTO library_fts (title, clip_text, ocr_text, tags, collection_name, item_id)
@@ -165,11 +233,28 @@ impl Db {
                 title,
                 clip.clone().unwrap_or_default(),
                 input.ocr_text.clone().unwrap_or_default(),
-                tags.join(" "),
+                fts_tags,
                 collection_name,
                 id
             ],
         )?;
+
+        // Bidirectional lineage: note → library
+        if let Some(ref nid) = note_id {
+            conn.execute(
+                "UPDATE notes SET library_item_id = ?1, updated_at = ?2 WHERE id = ?3",
+                params![id, now, nid],
+            )?;
+        }
+
+        let linked_note_title = note_id.as_ref().and_then(|nid| {
+            conn.query_row(
+                "SELECT title FROM notes WHERE id = ?1",
+                params![nid],
+                |r| r.get(0),
+            )
+            .ok()
+        });
 
         Ok(LibraryItem {
             id,
@@ -182,8 +267,40 @@ impl Db {
             tags,
             screenshot_path,
             content_type: input.content_type,
+            note_id,
+            linked_note_title,
             created_at: now,
         })
+    }
+
+    #[allow(dead_code)]
+    pub fn link_library_to_note(&self, library_id: &str, note_id: &str) -> ScoopResult<()> {
+        let conn = self.conn.lock().expect("db");
+        let now = Utc::now().to_rfc3339();
+        conn.execute(
+            "UPDATE library_items SET note_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![note_id, now, library_id],
+        )?;
+        conn.execute(
+            "UPDATE notes SET library_item_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![library_id, now, note_id],
+        )?;
+        // Prefer sharing the library screenshot on the note when note has none.
+        let lib_shot: Option<String> = conn
+            .query_row(
+                "SELECT screenshot_path FROM library_items WHERE id = ?1",
+                params![library_id],
+                |r| r.get(0),
+            )
+            .ok()
+            .flatten();
+        if let Some(path) = lib_shot {
+            conn.execute(
+                "UPDATE notes SET screenshot_path = COALESCE(screenshot_path, ?1) WHERE id = ?2",
+                params![path, note_id],
+            )?;
+        }
+        Ok(())
     }
 
     pub fn list_library_items(
@@ -191,41 +308,18 @@ impl Db {
         collection_id: Option<String>,
     ) -> ScoopResult<Vec<LibraryItem>> {
         let conn = self.conn.lock().expect("db");
-        let mut sql = String::from(
-            "SELECT li.id, li.collection_id, c.name, li.title, li.item_type, li.clip_text, li.ocr_text,
-                    li.tags, li.screenshot_path, li.content_type, li.created_at
-             FROM library_items li
-             JOIN collections c ON c.id = li.collection_id",
-        );
+        let mut sql = LIBRARY_SELECT.to_string();
         if collection_id.is_some() {
             sql.push_str(" WHERE li.collection_id = ?1");
         }
         sql.push_str(" ORDER BY li.created_at DESC LIMIT 200");
 
         let mut stmt = conn.prepare(&sql)?;
-        let map_row = |r: &rusqlite::Row| -> rusqlite::Result<LibraryItem> {
-            let tags_json: String = r.get(7)?;
-            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
-            Ok(LibraryItem {
-                id: r.get(0)?,
-                collection_id: r.get(1)?,
-                collection_name: r.get(2)?,
-                title: r.get(3)?,
-                item_type: r.get(4)?,
-                clip_text: r.get(5)?,
-                ocr_text: r.get(6)?,
-                tags,
-                screenshot_path: r.get(8)?,
-                content_type: r.get(9)?,
-                created_at: r.get(10)?,
-            })
-        };
-
         let rows = if let Some(cid) = collection_id {
-            stmt.query_map(params![cid], map_row)?
+            stmt.query_map(params![cid], map_library_row)?
                 .collect::<Result<Vec<_>, _>>()?
         } else {
-            stmt.query_map([], map_row)?
+            stmt.query_map([], map_library_row)?
                 .collect::<Result<Vec<_>, _>>()?
         };
         Ok(rows)
@@ -237,34 +331,15 @@ impl Db {
         if q.is_empty() {
             return self.list_library_items(None);
         }
-        let mut stmt = conn.prepare(
-            "SELECT li.id, li.collection_id, c.name, li.title, li.item_type, li.clip_text, li.ocr_text,
-                    li.tags, li.screenshot_path, li.content_type, li.created_at
-             FROM library_fts f
-             JOIN library_items li ON li.id = f.item_id
-             JOIN collections c ON c.id = li.collection_id
+        let mut stmt = conn.prepare(&format!(
+            "{LIBRARY_SELECT}
+             JOIN library_fts f ON f.item_id = li.id
              WHERE library_fts MATCH ?1
              ORDER BY rank
-             LIMIT 100",
-        )?;
+             LIMIT 100"
+        ))?;
         let rows = stmt
-            .query_map(params![q], |r| {
-                let tags_json: String = r.get(7)?;
-                let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
-                Ok(LibraryItem {
-                    id: r.get(0)?,
-                    collection_id: r.get(1)?,
-                    collection_name: r.get(2)?,
-                    title: r.get(3)?,
-                    item_type: r.get(4)?,
-                    clip_text: r.get(5)?,
-                    ocr_text: r.get(6)?,
-                    tags,
-                    screenshot_path: r.get(8)?,
-                    content_type: r.get(9)?,
-                    created_at: r.get(10)?,
-                })
-            })?
+            .query_map(params![q], map_library_row)?
             .collect::<Result<Vec<_>, _>>()?;
         Ok(rows)
     }
@@ -279,10 +354,24 @@ impl Db {
             )
             .ok()
             .flatten();
+        // Unlink notes but keep note content; clear shared path only if it points at this file.
+        conn.execute(
+            "UPDATE notes SET library_item_id = NULL WHERE library_item_id = ?1",
+            params![id],
+        )?;
         conn.execute("DELETE FROM library_fts WHERE item_id = ?1", params![id])?;
         conn.execute("DELETE FROM library_items WHERE id = ?1", params![id])?;
         if let Some(p) = path {
-            let _ = std::fs::remove_file(p);
+            let still_used: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM notes WHERE screenshot_path = ?1)",
+                    params![p],
+                    |r| r.get(0),
+                )
+                .unwrap_or(false);
+            if !still_used {
+                let _ = std::fs::remove_file(p);
+            }
         }
         Ok(())
     }

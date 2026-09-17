@@ -39,8 +39,8 @@
       {
         "label": "toolbar",
         "title": "Scoop Actions",
-        "width": 640,
-        "height": 420,
+        "width": 1280,
+        "height": 820,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
@@ -57,7 +57,8 @@
           "$CACHE/scoop/**",
           "$HOME/.cache/scoop/**",
           "$DATA/scoop/**",
-          "$HOME/.local/share/scoop/**"
+          "$HOME/.local/share/scoop/**",
+          "$HOME/Pictures/Screenshots/**"
         ]
       }
     }

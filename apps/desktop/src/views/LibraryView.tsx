@@ -6,13 +6,9 @@ function LibraryThumb({ path }: { path: string }) {
   const [src, setSrc] = useState<string>(() => convertFileSrc(path));
   useEffect(() => {
     setSrc(convertFileSrc(path));
-    // Fallback if asset protocol fails for this path.
     const img = new Image();
     img.onerror = () => {
-      api
-        .readCaptureDataUrl(path)
-        .then(setSrc)
-        .catch(console.error);
+      api.readCaptureDataUrl(path).then(setSrc).catch(console.error);
     };
     img.src = convertFileSrc(path);
   }, [path]);
@@ -47,13 +43,13 @@ export default function LibraryView() {
         <h2>Library</h2>
       </div>
       <p className="msg">
-        Arranged screenshots and copied text — searchable anytime, offline.
+        Screenshots linked to notes — search by text, tags, or filename.
       </p>
       <div className="search-row">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search library (text & tags)…"
+          placeholder="Search library (text, tags, image)…"
           onKeyDown={(e) => e.key === "Enter" && load()}
         />
         <button onClick={load}>Search</button>
@@ -109,12 +105,22 @@ export default function LibraryView() {
                 ))}
               </div>
             )}
+            {item.noteId && (
+              <div className="lineage">
+                Linked note: {item.linkedNoteTitle || item.noteId}
+              </div>
+            )}
             <div className="meta">
               <span>{item.collectionName}</span>
               <span>{item.itemType}</span>
               <span>{item.contentType}</span>
               <span>{new Date(item.createdAt).toLocaleString()}</span>
             </div>
+            {item.screenshotPath && (
+              <p className="path-line" title={item.screenshotPath}>
+                {item.screenshotPath}
+              </p>
+            )}
             <button
               onClick={async () => {
                 await api.deleteLibraryItem(item.id);

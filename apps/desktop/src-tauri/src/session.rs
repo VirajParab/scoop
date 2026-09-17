@@ -16,6 +16,12 @@ pub struct SelectionSession {
     pub content_type: String,
     pub actions: Vec<String>,
     pub region: Option<Region>,
+    /// Lineage: library item saved from this selection (if any).
+    pub library_item_id: Option<String>,
+    /// Lineage: note saved from this selection (if any).
+    pub note_id: Option<String>,
+    /// True when the selection screenshot was copied to the clipboard.
+    pub clipboard_image_copied: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

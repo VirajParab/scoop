@@ -17,6 +17,7 @@ use crate::intent;
 use crate::math_engine;
 use crate::ocr;
 use crate::providers::{self, AskAiRequest};
+use crate::paths::captures_dir;
 use crate::search;
 use crate::session::{AppState, Region, SelectionSession, SelectionStartedPayload};
 
@@ -190,6 +191,15 @@ pub fn confirm_selection(
         }
     };
 
+    // Auto-copy screenshot so users can paste immediately (Ctrl+V).
+    let clipboard_copied = match clipboard_ext::copy_image_file(&held) {
+        Ok(()) => true,
+        Err(e) => {
+            eprintln!("Scoop auto clipboard image failed: {e}");
+            false
+        }
+    };
+
     let session = SelectionSession {
         capture_path: Some(held.to_string_lossy().to_string()),
         preview_data_url,
@@ -198,6 +208,9 @@ pub fn confirm_selection(
         content_type: content.as_str().to_string(),
         actions,
         region: Some(screen.clone()),
+        library_item_id: None,
+        note_id: None,
+        clipboard_image_copied: clipboard_copied,
     };
 
     {
@@ -239,8 +252,8 @@ fn position_toolbar(app: &AppHandle, region: &Region) -> ScoopResult<()> {
         .get_webview_window("toolbar")
         .ok_or_else(|| ScoopError::msg("Toolbar window missing"))?;
 
-    let tw = 640i32;
-    let th = 420i32;
+    let tw = 1280i32;
+    let th = 820i32;
     let mut x = region.x;
     let mut y = region.y + region.height as i32 + 12;
 
@@ -295,6 +308,49 @@ pub fn update_ocr_text(text: String, state: State<AppState>) -> ScoopResult<Sele
     Ok(s.clone())
 }
 
+/// Replace the session screenshot with an edited PNG (raw base64 or data-URL).
+#[tauri::command]
+pub fn apply_edited_capture(
+    png_base64: String,
+    state: State<AppState>,
+    app: AppHandle,
+) -> ScoopResult<SelectionSession> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    let raw = png_base64
+        .strip_prefix("data:image/png;base64,")
+        .or_else(|| png_base64.strip_prefix("data:image/jpeg;base64,"))
+        .unwrap_or(png_base64.as_str());
+    let bytes = STANDARD
+        .decode(raw.trim())
+        .map_err(|e| ScoopError::msg(format!("Invalid edited image data: {e}")))?;
+    if bytes.is_empty() {
+        return Err(ScoopError::msg("Edited image is empty"));
+    }
+    let _ = image::load_from_memory(&bytes)
+        .map_err(|e| ScoopError::msg(format!("Edited image is not valid: {e}")))?;
+
+    let dest = captures_dir()?.join("session-selection.png");
+    std::fs::write(&dest, &bytes)
+        .map_err(|e| ScoopError::msg(format!("Failed to write edited image: {e}")))?;
+
+    let preview = capture::read_data_url(&dest).ok();
+    let clipboard_copied = clipboard_ext::copy_image_file(&dest).is_ok();
+
+    let mut session = state.session.lock().expect("session").clone();
+    session.capture_path = Some(dest.to_string_lossy().to_string());
+    session.preview_data_url = preview;
+    session.clipboard_image_copied = clipboard_copied;
+
+    {
+        let mut s = state.session.lock().expect("session");
+        *s = session.clone();
+    }
+
+    let _ = app.emit("session-updated", &session);
+    Ok(session)
+}
+
 #[tauri::command]
 pub fn dismiss_toolbar(state: State<AppState>, app: AppHandle) -> ScoopResult<()> {
     state.clear_session();
@@ -335,6 +391,7 @@ pub fn action_copy(
             capture_path: None,
             content_type: Some(session.content_type),
             include_screenshot: Some(false),
+            note_id: None,
         });
     }
     Ok(())
@@ -424,16 +481,31 @@ pub fn action_save_library(
         capture_path,
         content_type: input.content_type.or(Some(session.content_type.clone())),
         include_screenshot: Some(include_shot),
+        note_id: input.note_id.or(session.note_id.clone()),
     };
     eprintln!(
-        "Scoop save_library: include_shot={include_shot} path={:?} tags={:?}",
-        merged.capture_path, merged.tags
+        "Scoop save_library: include_shot={include_shot} path={:?} tags={:?} note={:?}",
+        merged.capture_path, merged.tags, merged.note_id
     );
     let item = shared.0.save_library_item(merged)?;
+
+    // Remember lineage on the live session so a later Note save links automatically.
+    {
+        let mut s = state.session.lock().expect("session");
+        s.library_item_id = Some(item.id.clone());
+        if let Some(ref nid) = item.note_id {
+            s.note_id = Some(nid.clone());
+        }
+    }
+
+    let link_note = item
+        .note_id
+        .as_ref()
+        .map(|n| format!("linked note {n}"));
     let _ = shared.0.add_history(
         "save_library",
         Some(&item.title),
-        None,
+        link_note.as_deref(),
         item.content_type.as_deref(),
     );
     Ok(item)
@@ -447,16 +519,50 @@ pub fn action_save_note(
     shared: State<SharedDb>,
 ) -> ScoopResult<crate::db::notes::Note> {
     let session = state.session.lock().expect("session").clone();
+
+    // Ensure lineage: if this selection already has a library image, link to it.
+    // Otherwise create a library item first so note ↔ image stay searchable together.
+    let mut library_item_id = input.library_item_id.or(session.library_item_id.clone());
+    if library_item_id.is_none() {
+        let capture = input
+            .capture_path
+            .clone()
+            .or(session.capture_path.clone())
+            .filter(|p| !p.is_empty() && std::path::Path::new(p).exists());
+        if capture.is_some() || !session.ocr_text.trim().is_empty() {
+            let auto = shared.0.save_library_item(SaveLibraryInput {
+                title: input.title.clone(),
+                collection_name: Some("Inbox".into()),
+                tags: input.tags.clone(),
+                clip_text: input
+                    .content
+                    .clone()
+                    .or(Some(session.ocr_text.clone())),
+                ocr_text: Some(session.ocr_text.clone()),
+                capture_path: capture,
+                content_type: Some(session.content_type.clone()),
+                include_screenshot: Some(true),
+                note_id: None,
+            })?;
+            library_item_id = Some(auto.id);
+        }
+    }
+
     let mut merged = SaveNoteInput {
         title: input.title,
         content: input.content.or(Some(session.ocr_text.clone())),
         summary: input.summary,
         ocr_text: input.ocr_text.or(Some(session.ocr_text.clone())),
         tags: input.tags,
-        capture_path: input.capture_path.or(session.capture_path.clone()),
+        // Prefer shared library screenshot; skip duplicate copy when linked.
+        capture_path: if library_item_id.is_some() {
+            None
+        } else {
+            input.capture_path.or(session.capture_path.clone())
+        },
         content_type: input.content_type.or(Some(session.content_type.clone())),
         is_smart: Some(smart),
-        library_item_id: input.library_item_id,
+        library_item_id,
     };
 
     if smart {
@@ -483,10 +589,23 @@ pub fn action_save_note(
     }
 
     let note = shared.0.save_note(merged)?;
+
+    {
+        let mut s = state.session.lock().expect("session");
+        s.note_id = Some(note.id.clone());
+        if let Some(ref lid) = note.library_item_id {
+            s.library_item_id = Some(lid.clone());
+        }
+    }
+
+    let link_lib = note
+        .library_item_id
+        .as_ref()
+        .map(|l| format!("linked image {l}"));
     let _ = shared.0.add_history(
         "save_note",
         Some(&note.title),
-        None,
+        link_lib.as_deref(),
         note.content_type.as_deref(),
     );
     Ok(note)
@@ -552,6 +671,14 @@ pub fn create_collection(
     shared: State<SharedDb>,
 ) -> ScoopResult<crate::db::library::Collection> {
     shared.0.create_collection(&name)
+}
+
+#[tauri::command]
+pub fn search_all(
+    query: String,
+    shared: State<SharedDb>,
+) -> ScoopResult<Vec<crate::db::search::SearchHit>> {
+    shared.0.search_all(&query)
 }
 
 #[tauri::command]

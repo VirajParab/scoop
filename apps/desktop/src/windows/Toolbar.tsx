@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import { api, SelectionSession } from "../api";
+import ImageEditor from "./ImageEditor";
 import "./toolbar.css";
 
 const LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ export default function Toolbar() {
   const [result, setResult] = useState<string>("");
   const [askOpen, setAskOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [saveTitle, setSaveTitle] = useState("");
   const [saveTags, setSaveTags] = useState("");
   const [question, setQuestion] = useState("Explain this.");
@@ -72,30 +74,37 @@ export default function Toolbar() {
         setError("");
         setAskOpen(false);
         setSaveOpen(false);
+        setEditing(false);
         setSaveTitle("");
         setSaveTags("");
         setPreview(null);
       }),
     ];
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") api.dismissToolbar().catch(console.error);
+      if (e.key === "Escape") {
+        if (editing) {
+          setEditing(false);
+          return;
+        }
+        api.dismissToolbar().catch(console.error);
+      }
     };
     window.addEventListener("keydown", onKey);
     getCurrentWindow()
-      .setSize(new LogicalSize(640, 420))
+      .setSize(new LogicalSize(1280, 820))
       .catch(console.error);
     return () => {
       window.removeEventListener("keydown", onKey);
       unsubs.forEach((p) => p.then((u) => u()));
     };
-  }, []);
+  }, [editing]);
 
   useEffect(() => {
-    const tall = saveOpen || askOpen;
+    const tall = saveOpen || askOpen || editing;
     getCurrentWindow()
-      .setSize(new LogicalSize(640, tall ? 520 : 420))
+      .setSize(new LogicalSize(editing ? 1380 : 1280, tall ? 920 : 820))
       .catch(console.error);
-  }, [saveOpen, askOpen]);
+  }, [saveOpen, askOpen, editing]);
 
   const actions = useMemo(() => session?.actions ?? [], [session]);
   const hasImage = Boolean(preview || session?.capturePath);
@@ -110,6 +119,7 @@ export default function Toolbar() {
 
   const openSave = () => {
     setAskOpen(false);
+    setEditing(false);
     setSaveOpen(true);
     setError("");
     setResult("");
@@ -117,6 +127,18 @@ export default function Toolbar() {
       const first = ocr.split("\n").find((l) => l.trim())?.trim() ?? "";
       setSaveTitle(first.slice(0, 60));
     }
+  };
+
+  const openEditor = () => {
+    if (!preview) {
+      setError("No screenshot to edit.");
+      return;
+    }
+    setSaveOpen(false);
+    setAskOpen(false);
+    setEditing(true);
+    setError("");
+    setResult("");
   };
 
   const confirmSave = async () => {
@@ -137,8 +159,14 @@ export default function Toolbar() {
       if (!item.screenshotPath) {
         throw new Error("Saved, but screenshot was not stored. Try selecting again.");
       }
-      const tagNote = tags.length ? ` · tags: ${tags.join(", ")}` : "";
-      setResult(`Saved image to Library: ${item.title}${tagNote}`);
+      const tagNote = tags.length ? `\nTags: ${tags.join(", ")}` : "";
+      setResult(
+        `Saved “${item.title}” to Library.\nStored at:\n${item.screenshotPath}${tagNote}${
+          item.noteId
+            ? `\nLinked note: ${item.linkedNoteTitle || item.noteId}`
+            : "\nTip: Save Note next to link this image for search."
+        }`,
+      );
       setSaveOpen(false);
       setSaveTags("");
     } catch (e) {
@@ -155,7 +183,7 @@ export default function Toolbar() {
       switch (action) {
         case "copy":
           await api.actionCopy(ocr);
-          setResult("Copied to clipboard");
+          setResult("Copied OCR text to clipboard");
           break;
         case "calculate": {
           const r = await api.actionCalculate(ocr);
@@ -171,12 +199,27 @@ export default function Toolbar() {
           openSave();
           break;
         case "save_note": {
-          const note = await api.actionSaveNote({ content: ocr }, false);
-          setResult(`Saved note: ${note.title}`);
+          const note = await api.actionSaveNote(
+            {
+              content: ocr,
+              tags: parseTags(saveTags),
+              libraryItemId: session?.libraryItemId ?? undefined,
+            },
+            false,
+          );
+          const link = note.libraryItemId
+            ? `\nLinked image: ${note.linkedLibraryTitle || note.libraryItemId}`
+            : "";
+          const where = note.screenshotPath
+            ? `\nStored at:\n${note.screenshotPath}`
+            : "";
+          setResult(`Saved note: ${note.title}${link}${where}`);
+          applySession(await api.getSession());
           break;
         }
         case "ask_ai":
           setSaveOpen(false);
+          setEditing(false);
           setAskOpen(true);
           break;
         default:
@@ -202,6 +245,34 @@ export default function Toolbar() {
     }
   };
 
+  if (editing && preview) {
+    return (
+      <div className="toolbar-root editor-mode">
+        <div className="toolbar-meta">
+          <span className="pill">EDIT IMAGE</span>
+          <button className="ghost" onClick={() => setEditing(false)}>
+            Back
+          </button>
+        </div>
+        <ImageEditor
+          imageSrc={preview}
+          onCancel={() => setEditing(false)}
+          onApply={async (png) => {
+            const s = await api.applyEditedCapture(png);
+            applySession(s);
+            setEditing(false);
+            setResult(
+              s.clipboardImageCopied
+                ? "Edits applied. Screenshot updated and copied — paste with Ctrl+V, then Save image when ready."
+                : "Edits applied. Screenshot updated — Save image when ready.",
+            );
+          }}
+        />
+        {error && <div className="err">{error}</div>}
+      </div>
+    );
+  }
+
   return (
     <div className="toolbar-root">
       <div className="toolbar-meta">
@@ -212,6 +283,11 @@ export default function Toolbar() {
       </div>
 
       {session?.ocrError && <div className="err">{session.ocrError}</div>}
+      {session?.clipboardImageCopied && (
+        <div className="clipboard-hint">
+          Screenshot copied to clipboard — paste with Ctrl+V
+        </div>
+      )}
 
       <div className="content-row">
         <div className="preview-pane">
@@ -231,11 +307,14 @@ export default function Toolbar() {
               ? "Type or paste text manually, then use actions below"
               : "OCR text (editable)"
           }
-          rows={6}
+          rows={12}
         />
       </div>
 
       <div className="action-row">
+        <button disabled={busy || !hasImage} onClick={openEditor}>
+          Edit image
+        </button>
         {actions.map((a) => (
           <button key={a} disabled={busy} onClick={() => run(a)}>
             {LABELS[a] ?? a}
@@ -280,7 +359,7 @@ export default function Toolbar() {
               </label>
               <div className="save-hint">
                 {hasImage
-                  ? "Screenshot + text will be saved together."
+                  ? "Edited screenshot + text will be saved to ~/Pictures/Screenshots"
                   : "Screenshot missing — select the region again."}
               </div>
             </div>
