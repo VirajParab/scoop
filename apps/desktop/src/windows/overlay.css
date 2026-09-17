@@ -1,0 +1,102 @@
+html,
+body,
+#root {
+  margin: 0;
+  background: transparent;
+  height: 100%;
+  overflow: hidden;
+}
+
+.overlay-root {
+  position: fixed;
+  inset: 0;
+  cursor: crosshair;
+  user-select: none;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: transparent;
+}
+
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.overlay-fallback {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 28, 0.15);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Light dim so the frozen desktop stays readable */
+.overlay-dim {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* While dragging, dim is handled by selection box-shadow (clearer “hole”) */
+.overlay-dim.selecting {
+  background: transparent;
+}
+
+.overlay-hint {
+  position: absolute;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e8eef7;
+  background: rgba(12, 18, 28, 0.72);
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.overlay-error {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(560px, 90vw);
+  color: #ffe8e8;
+  background: rgba(90, 24, 24, 0.88);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: none;
+  z-index: 3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.selection-rect {
+  position: absolute;
+  border: 2px solid #5ec8ff;
+  background: transparent;
+  /* Outside the selection stays lightly dimmed; inside stays fully visible */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.32);
+  z-index: 2;
+}
+
+.selection-size {
+  position: absolute;
+  bottom: -22px;
+  right: 0;
+  font-size: 11px;
+  color: #d7e6f5;
+  background: rgba(12, 18, 28, 0.8);
+  padding: 2px 6px;
+  border-radius: 4px;
+}

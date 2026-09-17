@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+dist/
+target/
+apps/desktop/dist/
+apps/desktop/src-tauri/target/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Scoop runtime data (local)
+*.db
+*.db-journal
+
+# Logs
+*.log
+npm-debug.log*

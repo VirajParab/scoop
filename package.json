@@ -1,0 +1,10 @@
+{
+  "name": "scoop",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "npm run tauri --prefix apps/desktop -- dev",
+    "build": "npm run tauri --prefix apps/desktop -- build",
+    "desktop": "npm run tauri --prefix apps/desktop"
+  }
+}

@@ -1,0 +1,252 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b1118;
+  --panel: #121a24;
+  --line: #243041;
+  --text: #e7eef7;
+  --muted: #8fa0b3;
+  --accent: #3d8bfd;
+  --accent-2: #5ec8ff;
+  font-family: "IBM Plex Sans", "Source Sans 3", "Segoe UI", sans-serif;
+}
+
+html.main-window,
+html.main-window body,
+html.main-window #root {
+  margin: 0;
+  height: 100%;
+  background: radial-gradient(1200px 600px at 10% -10%, #152433, var(--bg));
+  color: var(--text);
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  height: 100%;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  padding: 20px 16px;
+  background: rgba(10, 14, 20, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.brand {
+  font-family: "IBM Plex Serif", "Source Serif 4", Georgia, serif;
+  font-size: 28px;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+
+.nav {
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.nav.active,
+.nav:hover {
+  background: #182332;
+  border-color: var(--line);
+}
+
+.select-cta {
+  margin-top: auto;
+  background: linear-gradient(135deg, var(--accent), #2563c7);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.hotkey-hint {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 8px 0 0;
+}
+
+.content {
+  padding: 24px 28px;
+  overflow: auto;
+}
+
+.home h1 {
+  font-family: "IBM Plex Serif", Georgia, serif;
+  font-weight: 600;
+  font-size: 34px;
+  margin: 0 0 12px;
+}
+
+.home p,
+.home li {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.warn-box {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #6b3030;
+  background: #2a1518;
+  color: #ffc9c9 !important;
+  font-size: 13px;
+}
+
+.warn-box code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  color: #ffe0e0;
+}
+
+.ok-box {
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #2a5a3a;
+  background: #14261a;
+  color: #b6f0c8 !important;
+  font-size: 13px;
+}
+
+.panel-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.panel-title h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.search-row input,
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.search-row input {
+  flex: 1;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.card h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.card .meta {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.card button {
+  margin-top: 8px;
+  margin-right: 6px;
+  background: #1a2433;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.form-grid {
+  display: grid;
+  gap: 10px;
+  max-width: 520px;
+}
+
+.form-grid label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.form-grid button {
+  justify-self: start;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.collections {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.collections button {
+  background: #16202c;
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.collections button.active {
+  border-color: var(--accent-2);
+  color: var(--accent-2);
+}
+
+.msg {
+  color: var(--muted);
+  font-size: 13px;
+}
