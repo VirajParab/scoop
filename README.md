@@ -16,27 +16,22 @@ No more juggling screenshot tools, OCR sites, calculators, browser tabs, and not
 
 ## Demo
 
-<!-- Drop your demo video below (MP4/WebM or YouTube/Loom embed). -->
+<p align="center">
+  <a href="docs/media/demo.mp4">
+    <img src="docs/media/screenshot-home.png" alt="Scoop demo — click to watch" width="800" />
+  </a>
+</p>
 
-https://github.com/user-attachments/assets/YOUR-DEMO-VIDEO
-
-> **Tip:** Record a 20–40s loop: hotkey → select → OCR → edit → save → search in Library.
+<p align="center">
+  <a href="docs/media/demo.mp4"><strong>▶ Watch demo (MP4)</strong></a>
+  &nbsp;·&nbsp; hotkey → select → OCR → act → save
+</p>
 
 ### Screenshots
 
-<!-- Replace these placeholders with real PNGs under docs/media/ -->
-
 | Home | Selection toolbar |
 |------|-------------------|
-| ![Home](docs/media/screenshot-home.png) | ![Toolbar](docs/media/screenshot-toolbar.png) |
-
-| Image editor | Library & linked notes |
-|--------------|------------------------|
-| ![Editor](docs/media/screenshot-editor.png) | ![Library](docs/media/screenshot-library.png) |
-
-<p align="center">
-  <em>Add your screenshots to <code>docs/media/</code> — filenames above are ready to drop in.</em>
-</p>
+| ![Scoop home](docs/media/screenshot-home.png) | ![Selection toolbar](docs/media/screenshot-toolbar.png) |
 
 ---
 
